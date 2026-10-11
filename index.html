@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+    
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FLDEP Spill Incidents</title>
+<link rel="stylesheet" href="index.css"/>
+<style>
+  /* ── Data table page specific ── */
+  .scroll-top{overflow-x:auto;overflow-y:hidden;height:14px;margin:0 32px;border-bottom:1px solid #e0e0e0}
+  .scroll-top::-webkit-scrollbar{height:8px}
+  .scroll-top::-webkit-scrollbar-track{background:#f4f4f4}
+  .scroll-top::-webkit-scrollbar-thumb{background:#bbb;border-radius:4px}
+  .scroll-top::-webkit-scrollbar-thumb:hover{background:#999}
+  #scrollTopInner{height:1px;display:block}
+  #mainTable th,#mainTable td{min-width:150px}
+
+  @media(max-width:900px){
+    .controls{padding:0 20px 12px}
+    .scroll-top{margin:0 20px}
+    .table-wrap{padding:0 20px 24px}
+  }
+  @media(max-width:600px){
+    .controls{padding:0 14px 10px;gap:8px}
+    .controls input{font-size:.8rem;padding:7px 10px}
+    .scroll-top{margin:0 14px}
+    .table-wrap{padding:0 14px 20px}
+    table{font-size:.72rem}
+    th{padding:8px 10px;font-size:.7rem}
+    td{padding:6px 10px}
+    #mainTable th,#mainTable td{min-width:120px}
+    .pagination{gap:6px;padding:12px}
+    .pagination button{padding:5px 12px;font-size:.78rem}
+    .pagination span{font-size:.78rem}
+  }
+</style>
+</head>
+<body>
+<div class="brand-bar"></div>
+<header>
+  <h1>FL DEP Incident Dashboard</h1>
+  <p class="subtitle">Florida Department of Environmental Protection — Pollution Notification Program</p>
+  <div class="meta">
+    <span>Updated as of April 18, 2026</span>
+    <span class="sep">|</span>
+    <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vS3hZQE9ruIekREv0BHQCxU-oyHz_VEMHBtdBDfD_jkvRiN3u96aZV5EHqmAhQ1x_wvRd_Gqk8VwbTZ/pubhtml" target="_blank">View Source Data ↗</a>
+  </div>
+</header>
+
+<nav class="page-nav">
+  <a href="index.html" class="active">Data Table</a>
+  <a href="map.html">Map &amp; Charts</a>
+</nav>
+
+<p class="section-label">Summary Statistics</p>
+<div class="kpis">
+  <div class="kpi"><h3>Total Incidents</h3><p id="kTotal">—</p><small>All reported incidents</small></div>
+  <div class="kpi"><h3>Counties Affected</h3><p id="kCounties">—</p><small>Unique counties</small></div>
+  <div class="kpi"><h3>Facilities</h3><p id="kFacilities">—</p><small>Unique facilities</small></div>
+  <div class="kpi"><h3>Reporters</h3><p id="kReporters">—</p><small>Unique reporters</small></div>
+</div>
+
+<div class="upload-bar">
+  <label class="upload-label" for="csvUpload">⬆ Upload Your Data</label>
+  <input type="file" id="csvUpload" accept=".csv" style="display:none"/>
+  <span class="upload-warning">⚠ Only upload data from the past year — uploading larger datasets may cause the database to crash.</span>
+  <span class="upload-status" id="uploadStatus"></span>
+</div>
+
+<p class="section-label">Incident Records</p>
+<div class="controls">
+  <input id="search" placeholder="Search all fields…"/>
+  <span class="stats" id="stats"></span>
+</div>
+<div class="scroll-top" id="scrollTop"><div id="scrollTopInner"></div></div>
+<div class="table-wrap" id="tableWrap">
+  <table id="mainTable"><thead id="thead"></thead><tbody id="tbody"></tbody></table>
+</div>
+<div class="pagination" id="pagination"></div>
+
+<footer>
+  <div class="footer-left">
+    <span>Florida Department of Environmental Protection</span>
+    <span>Pollution Notification Program — Incident Dashboard</span>
+    <span style="margin-top:2px;opacity:.6">© 2026 Alanna Fitzgerald Robbert</span>
+  </div>
+  <div class="footer-right">Data sourced from <a href="https://prodenv.dep.state.fl.us/DepPNP/reports/viewIncidentDetails?page=1" target="_blank">FL DEP PNP ↗</a></div>
+</footer>
+
+<script>
+const API_URL="php/api.php";
+const PAGE_SIZE=50;
+let allRows=[],headers=[],filtered=[],currentPage=1,sortCol=-1,sortAsc=true,colFilters={};
+
+function parseCSV(text){
+  const records=[];let row=[],field="",inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'&&text[i+1]==='"'){field+='"';i++;}
+      else if(c==='"'){inQ=false;}
+      else{field+=c;}
+    } else {
+      if(c==='"'){inQ=true;}
+      else if(c===','){row.push(field);field="";}
+      else if(c==='\r'){}
+      else if(c==='\n'){row.push(field);records.push(row);row=[];field="";}
+      else{field+=c;}
+    }
+  }
+  if(row.length||field){row.push(field);records.push(row);}
+  return records;
+}
+
+function loadRows(rows){
+  allRows=rows;
+  if(rows.length)headers=Object.keys(rows[0]);
+  filtered=allRows;
+  currentPage=1;
+  document.getElementById("kTotal").textContent=allRows.length.toLocaleString();
+  document.getElementById("kCounties").textContent=new Set(allRows.flatMap(r=>(r["Affected Counties"]||"").split(",").map(c=>c.trim()).filter(Boolean))).size;
+  document.getElementById("kFacilities").textContent=new Set(allRows.map(r=>r["Facility Name"]).filter(Boolean)).size;
+  document.getElementById("kReporters").textContent=new Set(allRows.map(r=>r["Reporter Name"]).filter(Boolean)).size;
+  document.getElementById("thead").innerHTML="";
+  buildHeader();renderTable();
+}
+
+function loadCSV(input){
+  if(Array.isArray(input)){loadRows(input);return;}
+  const records=parseCSV(input.trim());
+  headers=records[0].map(h=>h.trim());
+  loadRows(records.slice(1).map(vals=>{
+    const row={};headers.forEach((h,i)=>{row[h]=(vals[i]||"").trim();});
+    return row;
+  }));
+}
+
+fetch(API_URL).then(r=>r.json()).then(data=>loadCSV(data));
+
+// Top scroll mirror
+const tw=document.getElementById("tableWrap");
+const st=document.getElementById("scrollTop");
+let syncing=false;
+tw.addEventListener("scroll",()=>{if(!syncing){syncing=true;st.scrollLeft=tw.scrollLeft;syncing=false;}});
+st.addEventListener("scroll",()=>{if(!syncing){syncing=true;tw.scrollLeft=st.scrollLeft;syncing=false;}});
+
+document.getElementById("csvUpload").addEventListener("change",function(){
+  const file=this.files[0];
+  if(!file)return;
+  const status=document.getElementById("uploadStatus");
+  status.textContent="Uploading…";
+  const fd=new FormData();
+  fd.append("csv",file);
+  fetch("php/upload.php",{method:"POST",body:fd})
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.error){status.style.color="#c0392b";status.textContent="✗ "+res.error;return;}
+      status.style.color="#005f87";
+      status.textContent=`✓ ${res.message}`;
+      fetch(API_URL).then(r=>r.json()).then(data=>loadCSV(data));
+    })
+    .catch(()=>{status.style.color="#c0392b";status.textContent="✗ Upload failed. Please try again.";});
+  this.value="";
+});
+
+function buildHeader(){
+  const thead=document.getElementById("thead");
+  const trHead=document.createElement("tr");
+  headers.forEach((h,i)=>{const th=document.createElement("th");th.textContent=h;th.onclick=()=>sortBy(i);trHead.appendChild(th);});
+  thead.appendChild(trHead);
+  const trFilter=document.createElement("tr");
+  trFilter.classList.add("filter-row");
+  headers.forEach(h=>{
+    const th=document.createElement("th");
+    const input=document.createElement("input");
+    input.placeholder="filter…";input.dataset.col=h;
+    input.addEventListener("input",applyFilters);
+    th.appendChild(input);trFilter.appendChild(th);
+  });
+  thead.appendChild(trFilter);
+}
+
+function applyFilters(){
+  const q=document.getElementById("search").value.toLowerCase();
+  const inputs=document.querySelectorAll(".filter-row input");
+  inputs.forEach(inp=>{colFilters[inp.dataset.col]=inp.value.toLowerCase();});
+  filtered=allRows.filter(row=>{
+    const matchGlobal=!q||headers.some(h=>(row[h]||"").toLowerCase().includes(q));
+    const matchCols=headers.every(h=>!colFilters[h]||(row[h]||"").toLowerCase().includes(colFilters[h]));
+    return matchGlobal&&matchCols;
+  });
+  currentPage=1;renderTable();
+}
+
+function sortBy(i){
+  const h=headers[i];
+  if(sortCol===i)sortAsc=!sortAsc;else{sortCol=i;sortAsc=true;}
+  filtered.sort((a,b)=>sortAsc?(a[h]||"").localeCompare(b[h]||""):(b[h]||"").localeCompare(a[h]||""));
+  renderTable();
+}
+
+function renderTable(){
+  const start=(currentPage-1)*PAGE_SIZE;
+  const tbody=document.getElementById("tbody");
+  tbody.innerHTML="";
+  filtered.slice(start,start+PAGE_SIZE).forEach(row=>{
+    const tr=document.createElement("tr");
+    headers.forEach(h=>{const td=document.createElement("td");td.textContent=row[h]||"";td.title=row[h]||"";tr.appendChild(td);});
+    tbody.appendChild(tr);
+  });
+  document.getElementById("stats").textContent=`Showing ${start+1}–${Math.min(start+PAGE_SIZE,filtered.length)} of ${filtered.length.toLocaleString()} records`;
+  const total=Math.ceil(filtered.length/PAGE_SIZE);
+  const pag=document.getElementById("pagination");pag.innerHTML="";
+  const prev=document.createElement("button");prev.textContent="← Prev";prev.disabled=currentPage===1;prev.onclick=()=>{currentPage--;renderTable();};pag.appendChild(prev);
+  const info=document.createElement("span");info.textContent=`Page ${currentPage} of ${total}`;pag.appendChild(info);
+  const next=document.createElement("button");next.textContent="Next →";next.disabled=currentPage===total;next.onclick=()=>{currentPage++;renderTable();};pag.appendChild(next);
+  requestAnimationFrame(()=>{document.getElementById("scrollTopInner").style.width=tw.scrollWidth+"px";});
+}
+
+document.getElementById("search").addEventListener("input",applyFilters);
+</script>
+</body></html>
