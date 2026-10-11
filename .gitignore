@@ -8,3 +8,5 @@ package.json
 package-lock.json
 
 api.php
+import.php
+upload.php
