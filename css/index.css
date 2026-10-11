@@ -1,0 +1,106 @@
+/* ── Base ── */
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;color:#222;display:flex;flex-direction:column;min-height:100vh}
+
+/* ── Top bar (UF-style brand bar) ── */
+.brand-bar{background:#005f87;height:6px;width:100%}
+
+/* ── Header ── */
+header{background:#005f87;color:#fff;padding:20px 32px 16px}
+header h1{font-size:1.6rem;font-weight:700;letter-spacing:.01em}
+header p.subtitle{font-size:.88rem;opacity:.8;margin-top:4px}
+.meta{display:flex;align-items:center;gap:12px;margin-top:10px;font-size:.82rem;color:rgba(255,255,255,.75)}
+.meta a{color:#7ecfff;text-decoration:none;font-weight:600}
+.meta a:hover{text-decoration:underline}
+.meta .sep{opacity:.4}
+
+/* ── Page nav tabs ── */
+.page-nav{background:#fff;border-bottom:3px solid #005f87;padding:0 32px;display:flex;gap:0}
+.page-nav a{display:inline-block;padding:12px 20px;font-size:.88rem;font-weight:600;color:#555;text-decoration:none;border-bottom:3px solid transparent;margin-bottom:-3px;transition:color .15s,border-color .15s}
+.page-nav a:hover{color:#005f87}
+.page-nav a.active{color:#005f87;border-bottom-color:#005f87}
+
+/* ── Section label ── */
+.section-label{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#005f87;padding:20px 32px 4px}
+
+/* ── KPI cards ── */
+.kpis{display:flex;gap:16px;padding:8px 32px 20px;flex-wrap:wrap}
+.kpi{background:#fff;border-radius:4px;padding:20px 24px;flex:1;min-width:150px;box-shadow:0 2px 6px rgba(0,0,0,.07);border-top:4px solid #005f87;transition:box-shadow .15s}
+.kpi:hover{box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.kpi h3{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#888;margin-bottom:10px}
+.kpi p{font-size:2rem;font-weight:800;color:#005f87;line-height:1}
+.kpi small{font-size:.75rem;color:#aaa;margin-top:4px;display:block}
+
+/* ── Controls bar ── */
+.controls{display:flex;gap:10px;padding:0 32px 16px;flex-wrap:wrap;align-items:center}
+.controls input,.controls select{padding:8px 12px;border:1.5px solid #ccc;border-radius:3px;font-size:.875rem;font-family:inherit}
+.controls input:focus,.controls select:focus{outline:none;border-color:#005f87}
+.controls input{flex:1;min-width:220px}
+.stats{font-size:.82rem;color:#777;margin-left:auto}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;padding:0 32px 32px}
+table{width:max-content;min-width:100%;border-collapse:collapse;font-size:.8rem;background:#fff;border-radius:4px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,.07)}
+thead tr:first-child{background:#005f87;color:#fff}
+th{padding:11px 13px;text-align:left;white-space:nowrap;cursor:pointer;user-select:none;font-size:.78rem;font-weight:700;letter-spacing:.03em}
+th:hover{background:#004a6e}
+.filter-row th{background:#003f5c;padding:5px 6px}
+.filter-row input{width:100%;padding:4px 7px;font-size:.74rem;border:1px solid #334466;border-radius:2px;background:#1a2f3f;color:#fff;outline:none;font-family:inherit}
+.filter-row input::placeholder{color:rgba(255,255,255,.45)}
+.filter-row input:focus{border-color:#005f87;background:#1e3a4f}
+tbody tr:nth-child(even){background:#f7f9fb}
+tbody tr:hover{background:#e3f0f8}
+td{padding:8px 13px;border-bottom:1px solid #eee;white-space:nowrap;color:#333}
+
+/* ── Pagination ── */
+.pagination{display:flex;justify-content:center;align-items:center;gap:8px;padding:16px}
+.pagination button{padding:6px 16px;border:1.5px solid #ccc;border-radius:3px;background:#fff;cursor:pointer;font-size:.84rem;font-family:inherit;transition:all .15s}
+.pagination button:hover{background:#005f87;color:#fff;border-color:#005f87}
+.pagination button:disabled{opacity:.3;cursor:default}
+.pagination span{font-size:.84rem;color:#666}
+
+/* ── Upload bar ── */
+.upload-bar{display:flex;gap:12px;padding:8px 32px;background:#eef6fb;border-bottom:1px solid #c9e4f0;align-items:center;flex-wrap:wrap}
+.upload-label{padding:6px 14px;background:#005f87;color:#fff;border-radius:4px;font-size:.82rem;font-weight:600;cursor:pointer;white-space:nowrap;transition:background .15s}
+.upload-label:hover{background:#004a6e}
+.upload-warning{font-size:.8rem;color:#7a5000;background:#fff8e6;border:1px solid #f0d080;border-radius:4px;padding:5px 10px}
+.upload-status{font-size:.8rem;color:#005f87;font-weight:600}
+
+/* ── Footer ── */
+footer{background:#003f5c;color:rgba(255,255,255,.7);padding:16px 32px;font-size:.82rem;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;flex-shrink:0;border-top:3px solid #005f87;margin-top:auto}
+footer a{color:#7ecfff;text-decoration:none}
+footer a:hover{text-decoration:underline}
+footer .footer-left{display:flex;flex-direction:column;gap:3px}
+footer .footer-right{font-size:.75rem;opacity:.7}
+
+/* ── Responsive: shared ── */
+@media(max-width:900px){
+  header{padding:14px 20px 10px}
+  header h1{font-size:1.25rem}
+  .page-nav{padding:0 20px}
+  .page-nav a{padding:9px 16px}
+  .section-label{padding:14px 20px 4px}
+  .kpis{padding:6px 20px 16px;gap:10px}
+  .kpi{padding:14px 16px;min-width:120px}
+  .kpi p{font-size:1.6rem}
+  .upload-bar{padding:8px 20px}
+  footer{padding:14px 20px}
+}
+@media(max-width:600px){
+  header{padding:10px 14px 8px}
+  header h1{font-size:1rem}
+  header p.subtitle{font-size:.76rem}
+  .meta{font-size:.72rem;margin-top:4px}
+  .page-nav{padding:0 14px}
+  .page-nav a{padding:8px 12px;font-size:.8rem}
+  .section-label{padding:14px 14px 4px;font-size:.68rem}
+  .kpis{padding:4px 14px 14px;gap:8px}
+  .kpi{padding:12px 14px;min-width:calc(50% - 4px);flex:none}
+  .kpi h3{font-size:.65rem}
+  .kpi p{font-size:1.4rem}
+  .kpi small{font-size:.68rem}
+  .upload-bar{padding:8px 14px;gap:8px}
+  .upload-warning{font-size:.72rem;padding:4px 8px}
+  footer{padding:10px 14px;flex-direction:column;align-items:flex-start;gap:4px}
+  footer .footer-right{font-size:.72rem}
+}
