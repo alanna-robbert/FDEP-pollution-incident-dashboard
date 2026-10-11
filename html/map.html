@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>FLDEP Spill Incidents</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<link rel="stylesheet" href="index.css"/>
+<style>
+  /* ── Map & Charts page specific ── */
+  .filter-bar{display:flex;gap:12px;padding:10px 32px;background:#fff;border-bottom:1px solid #ddd;align-items:center;flex-wrap:wrap}
+  .filter-bar input,.filter-bar select{padding:8px 12px;border:1.5px solid #ccc;border-radius:4px;font-size:.875rem;font-family:inherit}
+  .filter-bar input:focus,.filter-bar select:focus{outline:none;border-color:#005f87}
+  .filter-bar input{flex:1;min-width:180px}
+  .filter-bar .map-stats{font-size:.84rem;color:#666;margin-left:auto}
+
+  .dashboard{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:480px 340px;gap:16px;padding:16px 32px 24px;background:#f0f2f5}
+  .panel{background:#fff;border-radius:6px;box-shadow:0 2px 8px rgba(0,0,0,.08);display:flex;flex-direction:column;overflow:hidden}
+  .panel-header{padding:14px 20px 10px;border-bottom:2px solid #f0f2f5;flex-shrink:0;display:flex;justify-content:space-between;align-items:center}
+  .panel-header h2{font-size:1rem;font-weight:700;color:#005f87;text-transform:uppercase;letter-spacing:.05em}
+  .panel-body{flex:1;position:relative;overflow:hidden}
+
+  #map{height:100%;width:100%}
+
+  .chart-wrap{padding:16px 20px;height:100%;box-sizing:border-box}
+  .chart-wrap canvas{max-height:100%!important}
+
+  .panel-body--scroll{overflow-x:auto;overflow-y:hidden}
+  .panel-body--scroll .chart-wrap{height:100%;width:max-content;min-width:100%;padding:16px 20px;box-sizing:border-box}
+  .panel-body--scroll canvas{height:100%!important}
+
+  .panel-bottom{grid-column:1/-1}
+  .panel-bottom .chart-wrap{padding:14px 20px}
+
+  .popup-title{font-weight:700;font-size:.9rem;margin-bottom:6px;color:#005f87}
+  .popup-row{font-size:.8rem;margin:3px 0;line-height:1.4}
+  .popup-row span{font-weight:600}
+
+  @media(max-width:900px){
+    .filter-bar{padding:8px 20px}
+    .dashboard{grid-template-columns:1fr 1fr;grid-template-rows:360px 280px;gap:12px;padding:12px 20px 20px}
+  }
+  @media(max-width:600px){
+    .filter-bar{padding:8px 14px;gap:8px}
+    .filter-bar .map-stats{margin-left:0;width:100%}
+    .dashboard{grid-template-columns:1fr;grid-template-rows:320px 380px 300px;gap:12px;padding:12px 14px 20px}
+    .panel-bottom{grid-column:1}
+    .panel-header{padding:10px 14px 8px}
+    .panel-header h2{font-size:.85rem}
+    .chart-wrap{padding:10px 12px}
+  }
+</style>
+</head>
+<body>
+
+<div class="brand-bar"></div>
+<header>
+  <h1>FL DEP Incident Dashboard</h1>
+  <p class="subtitle">Florida Department of Environmental Protection — Pollution Notification Program</p>
+  <div class="meta">
+    <span>Updated as of April 18, 2026</span>
+    <span class="sep">|</span>
+    <a href="https://docs.google.com/spreadsheets/d/e/2PACX-1vS3hZQE9ruIekREv0BHQCxU-oyHz_VEMHBtdBDfD_jkvRiN3u96aZV5EHqmAhQ1x_wvRd_Gqk8VwbTZ/pubhtml" target="_blank">View Source Data ↗</a>
+  </div>
+</header>
+
+<nav class="page-nav">
+  <a href="index.html">Data Table</a>
+  <a href="map.html" class="active">Map &amp; Charts</a>
+</nav>
+
+<p class="section-label">Summary Statistics</p>
+<div class="kpis">
+  <div class="kpi"><h3>Total Incidents</h3><p id="kTotal">—</p><small>All reported incidents</small></div>
+  <div class="kpi"><h3>Counties Affected</h3><p id="kCounties">—</p><small>Unique counties</small></div>
+  <div class="kpi"><h3>Facilities</h3><p id="kFacilities">—</p><small>Unique facilities</small></div>
+  <div class="kpi"><h3>Reporters</h3><p id="kReporters">—</p><small>Unique reporters</small></div>
+</div>
+
+<div class="upload-bar">
+  <label class="upload-label" for="csvUpload">⬆ Upload Your Data</label>
+  <input type="file" id="csvUpload" accept=".csv" style="display:none"/>
+  <span class="upload-warning">⚠ Only upload data from the past year — uploading larger datasets may cause the database to crash.</span>
+  <span class="upload-status" id="uploadStatus"></span>
+</div>
+
+<div class="filter-bar">
+  <input id="search" placeholder="Search incidents…"/>
+  <select id="countyFilter"><option value="">All Counties</option></select>
+  <span class="map-stats" id="mapStats"></span>
+</div>
+
+<div class="dashboard">
+
+  <!-- Top Left: Bar Chart -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Incidents by County</h2>
+    </div>
+    <div class="panel-body panel-body--scroll">
+      <div class="chart-wrap" id="barChartWrap"><canvas id="barChart"></canvas></div>
+    </div>
+    <div id="countyNote" style="padding:6px 20px 10px;font-size:.78rem;color:#888;border-top:1px solid #f0f2f5;flex-shrink:0"></div>
+  </div>
+
+  <!-- Top Right: Map -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2>Incident Map</h2>
+    </div>
+    <div class="panel-body">
+      <div id="map"></div>
+    </div>
+  </div>
+
+  <!-- Bottom: Spill type breakdown -->
+  <div class="panel panel-bottom">
+    <div class="panel-header">
+      <h2>Spill Type Breakdown</h2>
+    </div>
+    <div class="panel-body">
+      <div class="chart-wrap"><canvas id="hbarChart"></canvas></div>
+    </div>
+    <div id="spillNote" style="padding:6px 20px 10px;font-size:.78rem;color:#888;border-top:1px solid #f0f2f5;flex-shrink:0"></div>
+  </div>
+
+</div>
+
+<footer>
+  <div class="footer-left">
+    <span>Florida Department of Environmental Protection</span>
+    <span>Pollution Notification Program — Incident Dashboard</span>
+    <span style="margin-top:2px;opacity:.6">© 2026 Alanna Fitzgerald Robbert</span>
+  </div>
+  <div class="footer-right">Data sourced from <a href="https://prodenv.dep.state.fl.us/DepPNP/reports/viewIncidentDetails?page=1" target="_blank">FL DEP PNP ↗</a></div>
+</footer>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const API_URL = "php/api.php";
+const BLUE = "#005f87", BLUES = ["#005f87","#007aaa","#0094cc","#00adee","#33bef2","#66cef5","#99dff9","#cceffe"];
+
+// ── Map ──────────────────────────────────────────────────────────────────────
+const FL_BOUNDS = L.latLngBounds([[24.4,-87.7],[31.1,-79.9]]);
+const map = L.map("map",{
+  maxBounds: FL_BOUNDS,
+  maxBoundsViscosity: 1.0,
+  minZoom: 6,
+  maxZoom: 18
+}).setView([27.8, -83.2], 6);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{
+  attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',maxZoom:18
+}).addTo(map);
+const cluster = L.markerClusterGroup({chunkedLoading:true});
+map.addLayer(cluster);
+
+// ── Bar chart (top-left) ─────────────────────────────────────────────────────
+const barChart = new Chart(document.getElementById("barChart"),{
+  type:"bar",
+  data:{labels:[],datasets:[{data:[],backgroundColor:BLUES,borderRadius:3,borderSkipped:false}]},
+  options:{
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{font:{size:11},maxRotation:90,minRotation:45,autoSkip:false}},
+      y:{ticks:{font:{size:20}},beginAtZero:true,grid:{color:"#f0f0f0"}}
+    }
+  }
+});
+
+// ── Horizontal bar chart (bottom) ────────────────────────────────────────────
+const hbarChart = new Chart(document.getElementById("hbarChart"),{
+  type:"bar",
+  data:{labels:[],datasets:[{data:[],backgroundColor:BLUES,borderRadius:3}]},
+  options:{
+    indexAxis:"y",
+    responsive:true,maintainAspectRatio:false,
+    plugins:{legend:{display:false}},
+    scales:{
+      x:{ticks:{font:{size:13}},beginAtZero:true,grid:{color:"#f0f0f0"}},
+      y:{ticks:{font:{size:14}}}
+    }
+  }
+});
+
+// ── Spill classifier ─────────────────────────────────────────────────────────
+function classifySpill(row){
+  const t=((row["Incident Name"]||"")+" "+(row["Incident Report"]||"")).toLowerCase();
+  if(/sewer|sewage/.test(t))                        return "Sewer Spill";
+  if(/fuel|petroleum|diesel|gasoline/.test(t))      return "Petroleum / Fuel";
+  if(/wastewater|waste water|ww release/.test(t))   return "Wastewater";
+  if(/chemical|hazmat/.test(t))                     return "Chemical / HazMat";
+  if(/fertilizer|pesticide|herbicide/.test(t))      return "Agricultural";
+  if(/pipe|pipeline|main break/.test(t))            return "Pipe / Line Break";
+  if(/spill/.test(t))                               return "General Spill";
+  if(/leak/.test(t))                                return "Leak";
+  return "Other";
+}
+
+// ── CSV parser (handles quoted fields with embedded newlines) ─────────────────
+function parseCSV(text){
+  const records=[];let row=[],field="",inQ=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'&&text[i+1]==='"'){field+='"';i++;}
+      else if(c==='"'){inQ=false;}
+      else{field+=c;}
+    } else {
+      if(c==='"'){inQ=true;}
+      else if(c===','){row.push(field);field="";}
+      else if(c==='\r'){}
+      else if(c==='\n'){row.push(field);records.push(row);row=[];field="";}
+      else{field+=c;}
+    }
+  }
+  if(row.length||field){row.push(field);records.push(row);}
+  return records;
+}
+
+function loadRows(rows){
+  allRows=rows;
+  const counties=new Set();
+  allRows.forEach(r=>(r["Affected Counties"]||"").split(",").forEach(c=>{const t=c.trim();if(t)counties.add(t);}));
+  const sel=document.getElementById("countyFilter");
+  sel.innerHTML='<option value="">All Counties</option>';
+  [...counties].sort().forEach(c=>{const o=document.createElement("option");o.value=c;o.textContent=c;sel.appendChild(o);});
+  document.getElementById("kTotal").textContent=allRows.length.toLocaleString();
+  document.getElementById("kCounties").textContent=counties.size;
+  document.getElementById("kFacilities").textContent=new Set(allRows.map(r=>r["Facility Name"]).filter(Boolean)).size;
+  document.getElementById("kReporters").textContent=new Set(allRows.map(r=>r["Reporter Name"]).filter(Boolean)).size;
+  update(allRows);
+}
+
+function loadCSV(text){
+  const records=parseCSV(text.trim());
+  const hdrs=records[0].map(h=>h.trim());
+  loadRows(records.slice(1).map(vals=>{
+    const row={};hdrs.forEach((h,i)=>{row[h]=(vals[i]||"").trim();});
+    return row;
+  }));
+}
+
+// ── Data ─────────────────────────────────────────────────────────────────────
+let allRows = [];
+
+fetch(API_URL).then(r=>r.json()).then(data=>loadRows(data));
+
+document.getElementById("csvUpload").addEventListener("change",function(){
+  const file=this.files[0];
+  if(!file)return;
+  const status=document.getElementById("uploadStatus");
+  status.textContent="Uploading…";
+  const fd=new FormData();
+  fd.append("csv",file);
+  fetch("php/upload.php",{method:"POST",body:fd})
+    .then(r=>r.json())
+    .then(res=>{
+      if(res.error){status.style.color="#c0392b";status.textContent="✗ "+res.error;return;}
+      status.style.color="#005f87";
+      status.textContent=`✓ ${res.message}`;
+      fetch(API_URL).then(r=>r.json()).then(data=>loadRows(data));
+    })
+    .catch(()=>{status.style.color="#c0392b";status.textContent="✗ Upload failed. Please try again.";});
+  this.value="";
+});
+
+// ── Render ───────────────────────────────────────────────────────────────────
+function update(rows){
+  // Map
+  cluster.clearLayers();
+  const mapped=rows.filter(r=>r.Latitude&&r.Longitude&&!isNaN(r.Latitude)&&!isNaN(r.Longitude));
+  mapped.forEach(row=>{
+    const m=L.marker([parseFloat(row.Latitude),parseFloat(row.Longitude)]);
+    m.bindPopup(`
+      <div class="popup-title">${row["Incident Name"]||"Unnamed Incident"}</div>
+      <div class="popup-row"><span>Type:</span> ${classifySpill(row)}</div>
+      <div class="popup-row"><span>Date:</span> ${row["Report Date/Time"]||"—"}</div>
+      <div class="popup-row"><span>Facility:</span> ${row["Facility Name"]||"—"}</div>
+      <div class="popup-row"><span>Counties:</span> ${row["Affected Counties"]||"—"}</div>
+      <div class="popup-row"><span>Reporter:</span> ${row["Reporter Name"]||"—"}</div>
+      <div class="popup-row"><span>SWO #:</span> ${row["SWO Incident Number"]||"—"}</div>
+    `,{maxWidth:300});
+    cluster.addLayer(m);
+  });
+
+  // Top bar chart — exclude unknown/blank counties
+  const barCounts={};
+  let unknownCount=0;
+  rows.forEach(r=>{
+    const raw=(r["Affected Counties"]||"").trim();
+    if(!raw){unknownCount++;return;}
+    raw.split(",").forEach(c=>{const t=c.trim();if(t)barCounts[t]=(barCounts[t]||0)+1;});
+  });
+  const barSorted=Object.entries(barCounts).sort((a,b)=>b[1]-a[1]);
+  barChart.data.labels=barSorted.map(e=>e[0]);
+  barChart.data.datasets[0].data=barSorted.map(e=>e[1]);
+  barChart.data.datasets[0].backgroundColor=barSorted.map((_,i)=>BLUES[i%BLUES.length]);
+  const barW=Math.max(500, barSorted.length*42);
+  document.getElementById("barChartWrap").style.width=barW+"px";
+  barChart.resize();
+  barChart.update();
+  document.getElementById("countyNote").textContent=
+    unknownCount>0?`Note: ${unknownCount.toLocaleString()} incident${unknownCount!==1?"s":""} have no county listed and are excluded from this chart.`:``;
+
+  // Bottom horizontal chart — exclude "Other"
+  const hCounts={};
+  let otherCount=0;
+  rows.forEach(r=>{const t=classifySpill(r);if(t==="Other"){otherCount++;return;}hCounts[t]=(hCounts[t]||0)+1;});
+  const hSorted=Object.entries(hCounts).sort((a,b)=>b[1]-a[1]);
+  hbarChart.data.labels=hSorted.map(e=>e[0]);
+  hbarChart.data.datasets[0].data=hSorted.map(e=>e[1]);
+  hbarChart.data.datasets[0].backgroundColor=hSorted.map((_,i)=>BLUES[i%BLUES.length]);
+  hbarChart.update();
+  document.getElementById("spillNote").textContent=
+    `Note: 3,361 incidents are categorized as "Other" and are excluded from this chart.`;
+
+  document.getElementById("mapStats").textContent=
+    `${rows.length.toLocaleString()} incidents · ${mapped.length.toLocaleString()} mapped`;
+}
+
+function applyFilters(){
+  const q=document.getElementById("search").value.toLowerCase();
+  const county=document.getElementById("countyFilter").value;
+  const filtered=allRows.filter(row=>{
+    const ms=!q||Object.values(row).some(v=>(v||"").toLowerCase().includes(q));
+    const mc=!county||(row["Affected Counties"]||"").includes(county);
+    return ms&&mc;
+  });
+  update(filtered);
+}
+
+document.getElementById("search").addEventListener("input",applyFilters);
+document.getElementById("countyFilter").addEventListener("change",applyFilters);
+</script>
+</body>
+</html>
