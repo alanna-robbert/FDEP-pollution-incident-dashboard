@@ -4,7 +4,7 @@
 <head>
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
 <title>FLDEP Spill Incidents</title>
-<link rel="stylesheet" href="index.css"/>
+<link rel="stylesheet" href="../css/index.css"/>
 <style>
   /* ── Data table page specific ── */
   .scroll-top{overflow-x:auto;overflow-y:hidden;height:14px;margin:0 32px;border-bottom:1px solid #e0e0e0}
@@ -88,7 +88,7 @@
 </footer>
 
 <script>
-const API_URL="php/api.php";
+const API_URL="../php/api.php";
 const PAGE_SIZE=50;
 let allRows=[],headers=[],filtered=[],currentPage=1,sortCol=-1,sortAsc=true,colFilters={};
 
@@ -151,7 +151,7 @@ document.getElementById("csvUpload").addEventListener("change",function(){
   status.textContent="Uploading…";
   const fd=new FormData();
   fd.append("csv",file);
-  fetch("php/upload.php",{method:"POST",body:fd})
+  fetch("../php/upload.php",{method:"POST",body:fd})
     .then(r=>r.json())
     .then(res=>{
       if(res.error){status.style.color="#c0392b";status.textContent="✗ "+res.error;return;}

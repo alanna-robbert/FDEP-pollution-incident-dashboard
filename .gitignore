@@ -12,3 +12,10 @@ import.php
 upload.php
 
 .htaccess
+
+# Database credentials — never commit
+db_config.php
+
+# Node / Vite
+node_modules/
+dist/
